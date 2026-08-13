@@ -1,0 +1,9 @@
+// Cloudflare Workers 靜態資產部署設定
+{
+  "name": "image-batch-tool",
+  "compatibility_date": "2026-08-13",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
