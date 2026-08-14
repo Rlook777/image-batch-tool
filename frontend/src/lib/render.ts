@@ -132,8 +132,58 @@ function makeBlurred(src: BaseSource, radius: number): HTMLCanvasElement {
   out.width = W;
   out.height = H;
   const octx = out.getContext('2d')!;
-  octx.filter = `blur(${radius}px)`;
-  octx.drawImage(padded, -pad, -pad);
+  if (supportsCanvasFilter()) {
+    octx.filter = `blur(${radius}px)`;
+    octx.drawImage(padded, -pad, -pad);
+  } else {
+    // Safari 18 之前不支援 ctx.filter,改用重採樣近似模糊
+    const blurred = blurByResample(padded, radius);
+    octx.drawImage(blurred, pad, pad, W, H, 0, 0, W, H);
+  }
+  return out;
+}
+
+let filterSupport: boolean | null = null;
+function supportsCanvasFilter(): boolean {
+  if (filterSupport === null) {
+    const ctx = document.createElement('canvas').getContext('2d')!;
+    ctx.filter = 'blur(2px)';
+    // 不支援的瀏覽器(舊 Safari)會忽略賦值,讀回來仍是 'none'
+    filterSupport = ctx.filter === 'blur(2px)';
+  }
+  return filterSupport;
+}
+
+/** 逐步半縮到 1/(radius/2) 再放大回原尺寸,近似高斯模糊 */
+function blurByResample(
+  source: HTMLCanvasElement,
+  radius: number,
+): HTMLCanvasElement {
+  const w = source.width;
+  const h = source.height;
+  const k = Math.max(1, radius / 2);
+  const targetW = Math.max(1, Math.round(w / k));
+
+  let cur: HTMLCanvasElement = source;
+  // 多段半縮比一次縮到底平滑(每段縮小都做一次雙線性平均)
+  while (cur.width / 2 > targetW) {
+    const next = document.createElement('canvas');
+    next.width = Math.max(1, Math.round(cur.width / 2));
+    next.height = Math.max(1, Math.round(cur.height / 2));
+    next.getContext('2d')!.drawImage(cur, 0, 0, next.width, next.height);
+    cur = next;
+  }
+  const small = document.createElement('canvas');
+  small.width = targetW;
+  small.height = Math.max(1, Math.round(h * (targetW / w)));
+  small.getContext('2d')!.drawImage(cur, 0, 0, small.width, small.height);
+
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext('2d')!;
+  octx.imageSmoothingQuality = 'high';
+  octx.drawImage(small, 0, 0, w, h);
   return out;
 }
 
