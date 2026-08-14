@@ -18,8 +18,10 @@ export default function LayoutPanel({
   onApply,
   onReset,
 }: Props) {
-  const [w, setW] = useState(0);
-  const [h, setH] = useState(0);
+  // 輸入框存字串,打字過程不做範圍修正(否則打「8」會被立刻改成 16),
+  // 失焦或按套用時才 clamp
+  const [w, setW] = useState('');
+  const [h, setH] = useState('');
   const [locked, setLocked] = useState(true);
   const [scope, setScope] = useState<LayoutScope>('single');
 
@@ -32,8 +34,8 @@ export default function LayoutPanel({
       (previewImg.targetW
         ? Math.round(previewImg.height * (previewImg.targetW / previewImg.width))
         : previewImg.height);
-    setW(curW);
-    setH(curH);
+    setW(String(curW));
+    setH(String(curH));
   }, [previewImg?.id, previewImg?.targetW, previewImg?.targetH]);
 
   if (!previewImg) return null;
@@ -41,15 +43,25 @@ export default function LayoutPanel({
   const ratio = previewImg.height / previewImg.width;
   const hasOverride = !!(previewImg.targetW || previewImg.targetH);
 
-  const changeW = (v: number) => {
-    const nw = clamp(v);
-    setW(nw);
-    if (locked) setH(Math.max(1, Math.round(nw * ratio)));
+  const changeW = (v: string) => {
+    setW(v);
+    const n = Number(v);
+    if (locked && n > 0) setH(String(Math.max(1, Math.round(n * ratio))));
   };
-  const changeH = (v: number) => {
-    const nh = clamp(v);
-    setH(nh);
-    if (locked) setW(Math.max(1, Math.round(nh / ratio)));
+  const changeH = (v: string) => {
+    setH(v);
+    const n = Number(v);
+    if (locked && n > 0) setW(String(Math.max(1, Math.round(n / ratio))));
+  };
+  const normalize = () => {
+    const nw = clamp(Number(w));
+    setW(String(nw));
+    if (locked) {
+      setH(String(Math.max(1, Math.round(nw * ratio))));
+    } else {
+      setH(String(clamp(Number(h))));
+    }
+    return nw;
   };
 
   return (
@@ -70,7 +82,8 @@ export default function LayoutPanel({
               max={8192}
               value={w}
               style={{ width: '50%' }}
-              onChange={(e) => changeW(Number(e.target.value))}
+              onChange={(e) => changeW(e.target.value)}
+              onBlur={normalize}
             />
             <input
               type="number"
@@ -78,7 +91,8 @@ export default function LayoutPanel({
               max={8192}
               value={h}
               style={{ width: '50%' }}
-              onChange={(e) => changeH(Number(e.target.value))}
+              onChange={(e) => changeH(e.target.value)}
+              onBlur={normalize}
             />
           </div>
         </div>
@@ -113,7 +127,10 @@ export default function LayoutPanel({
         <div style={{ display: 'flex', gap: 6 }}>
           <button
             className="btn small"
-            onClick={() => onApply(scope, w, locked ? null : h)}
+            onClick={() => {
+              const nw = normalize();
+              onApply(scope, nw, locked ? null : clamp(Number(h)));
+            }}
           >
             套用尺寸
           </button>
