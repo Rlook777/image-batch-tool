@@ -81,13 +81,34 @@ function applyMosaic(
 }
 
 function makeBlurred(src: ImageBitmap, radius: number): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = src.width;
-  c.height = src.height;
-  const cctx = c.getContext('2d')!;
-  cctx.filter = `blur(${radius}px)`;
-  cctx.drawImage(src, 0, 0);
-  return c;
+  const W = src.width;
+  const H = src.height;
+  // blur 濾鏡在邊緣會取樣到圖片外的透明像素,使邊緣半透明、底下原圖透出。
+  // 先把邊緣像素向外延展(edge clamp)再模糊,最後裁回原尺寸。
+  const pad = Math.ceil(radius * 2);
+  const padded = document.createElement('canvas');
+  padded.width = W + pad * 2;
+  padded.height = H + pad * 2;
+  const pctx = padded.getContext('2d')!;
+  pctx.drawImage(src, pad, pad);
+  // 四邊:各取 1px 邊條拉伸鋪滿 padding
+  pctx.drawImage(src, 0, 0, W, 1, pad, 0, W, pad);
+  pctx.drawImage(src, 0, H - 1, W, 1, pad, H + pad, W, pad);
+  pctx.drawImage(src, 0, 0, 1, H, 0, pad, pad, H);
+  pctx.drawImage(src, W - 1, 0, 1, H, W + pad, pad, pad, H);
+  // 四角:用角落像素填滿
+  pctx.drawImage(src, 0, 0, 1, 1, 0, 0, pad, pad);
+  pctx.drawImage(src, W - 1, 0, 1, 1, W + pad, 0, pad, pad);
+  pctx.drawImage(src, 0, H - 1, 1, 1, 0, H + pad, pad, pad);
+  pctx.drawImage(src, W - 1, H - 1, 1, 1, W + pad, H + pad, pad, pad);
+
+  const out = document.createElement('canvas');
+  out.width = W;
+  out.height = H;
+  const octx = out.getContext('2d')!;
+  octx.filter = `blur(${radius}px)`;
+  octx.drawImage(padded, -pad, -pad);
+  return out;
 }
 
 // 噪點用 128px 小磚重複平鋪,避免對大圖逐像素產生隨機值
