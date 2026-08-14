@@ -146,10 +146,18 @@ function makeBlurred(src: BaseSource, radius: number): HTMLCanvasElement {
 let filterSupport: boolean | null = null;
 function supportsCanvasFilter(): boolean {
   if (filterSupport === null) {
-    const ctx = document.createElement('canvas').getContext('2d')!;
+    // 不能只檢查屬性讀回值:部分 Safari 會保存 filter 值但渲染時不套用。
+    // 改為實際畫一個套 blur 的方塊,檢查方塊外圍像素是否被暈開
+    const c = document.createElement('canvas');
+    c.width = 8;
+    c.height = 8;
+    const ctx = c.getContext('2d')!;
     ctx.filter = 'blur(2px)';
-    // 不支援的瀏覽器(舊 Safari)會忽略賦值,讀回來仍是 'none'
-    filterSupport = ctx.filter === 'blur(2px)';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(3, 3, 2, 2);
+    const alphaOutside =
+      ctx.getImageData(1, 3, 1, 1).data[3];
+    filterSupport = alphaOutside > 0;
   }
   return filterSupport;
 }

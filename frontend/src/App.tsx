@@ -245,6 +245,9 @@ export default function App() {
         <span className="hint">
           馬賽克 · 浮水印 · 批量下載(全程在你的瀏覽器處理,圖片不會上傳)
         </span>
+        <span className="hint" style={{ marginLeft: 'auto' }}>
+          build {__BUILD_TIME__}
+        </span>
       </header>
       <div className="app-body">
         <aside className="sidebar">
