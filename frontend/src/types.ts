@@ -57,4 +57,7 @@ export interface OutputSettings {
   affix: string;
   format: 'original' | 'jpeg' | 'png';
   jpegQuality: number;
+  /** 統一寬度縮放:啟用時所有輸出圖縮放到 resizeWidth,高度等比 */
+  resizeEnabled: boolean;
+  resizeWidth: number;
 }

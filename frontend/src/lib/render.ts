@@ -1,9 +1,14 @@
 import type { MosaicSettings, WatermarkSettings } from '../types';
 
+/** 馬賽克/模糊的取樣來源:原圖或縮放後的中介 canvas */
+type BaseSource = ImageBitmap | HTMLCanvasElement;
+
 /**
- * 對來源圖套用馬賽克 + 浮水印,回傳處理後的 canvas。
+ * 對來源圖套用縮放 + 馬賽克 + 浮水印,回傳處理後的 canvas。
  * @param blockScale 預覽時來源圖是縮小過的,格子大小需乘上同樣比例,
  *                   讓預覽效果與全解析度輸出一致(輸出時傳 1)
+ * @param targetWidth 統一寬度縮放的目標寬(px);null/undefined 表示不縮放。
+ *                    先縮放再套效果,馬賽克強度以輸出解析度為準
  */
 export function renderProcessed(
   src: ImageBitmap,
@@ -11,25 +16,37 @@ export function renderProcessed(
   wm: WatermarkSettings,
   wmImage: ImageBitmap | null,
   blockScale = 1,
+  targetWidth?: number | null,
 ): HTMLCanvasElement {
+  let base: BaseSource = src;
+  if (targetWidth && targetWidth > 0 && targetWidth !== src.width) {
+    const W = Math.round(targetWidth);
+    const H = Math.max(1, Math.round(src.height * (W / src.width)));
+    const b = document.createElement('canvas');
+    b.width = W;
+    b.height = H;
+    b.getContext('2d')!.drawImage(src, 0, 0, W, H);
+    base = b;
+  }
+
   const canvas = document.createElement('canvas');
-  canvas.width = src.width;
-  canvas.height = src.height;
+  canvas.width = base.width;
+  canvas.height = base.height;
   const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(src, 0, 0);
+  ctx.drawImage(base, 0, 0);
 
   if (mosaic.enabled) {
-    applyMosaic(ctx, src, mosaic, blockScale);
+    applyMosaic(ctx, base, mosaic, blockScale);
   }
   if (wm.enabled && wmImage) {
-    applyWatermark(ctx, src.width, src.height, wm, wmImage);
+    applyWatermark(ctx, base.width, base.height, wm, wmImage);
   }
   return canvas;
 }
 
 function applyMosaic(
   ctx: CanvasRenderingContext2D,
-  src: ImageBitmap,
+  src: BaseSource,
   s: MosaicSettings,
   blockScale: number,
 ) {
@@ -80,7 +97,7 @@ function applyMosaic(
   }
 }
 
-function makeBlurred(src: ImageBitmap, radius: number): HTMLCanvasElement {
+function makeBlurred(src: BaseSource, radius: number): HTMLCanvasElement {
   const W = src.width;
   const H = src.height;
   // blur 濾鏡在邊緣會取樣到圖片外的透明像素,使邊緣半透明、底下原圖透出。

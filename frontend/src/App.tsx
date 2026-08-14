@@ -57,6 +57,8 @@ export default function App() {
     affix: '_processed',
     format: 'original',
     jpegQuality: 0.9,
+    resizeEnabled: false,
+    resizeWidth: 1080,
   });
 
   const [progress, setProgress] = useState<Progress>({
@@ -172,7 +174,14 @@ export default function App() {
     try {
       for (let i = 0; i < selected.length; i++) {
         const img = selected[i];
-        const canvas = renderProcessed(img.bitmap, mosaic, watermark, wmImage, 1);
+        const canvas = renderProcessed(
+          img.bitmap,
+          mosaic,
+          watermark,
+          wmImage,
+          1,
+          output.resizeEnabled ? output.resizeWidth : null,
+        );
         const mime = resolveMime(img.name, output);
         const blob = await canvasToBlob(
           canvas,
@@ -195,6 +204,15 @@ export default function App() {
       setProgress({ phase: 'idle', current: 0, total: 0, zipPercent: 0 });
     }
   };
+
+  // 預覽的效果強度以「輸出解析度」為準:啟用統一寬度時,
+  // 格子/模糊半徑的縮放比要用 預覽圖寬/輸出寬 而不是 預覽圖寬/原圖寬
+  const previewImg = images.find((i) => i.id === previewId);
+  const previewOutW = output.resizeEnabled
+    ? output.resizeWidth
+    : previewImg?.width;
+  const previewBlockScale =
+    previewData && previewOutW ? previewData.bitmap.width / previewOutW : 1;
 
   return (
     <div className="app">
@@ -228,7 +246,7 @@ export default function App() {
         <main className="main">
           <Preview
             bitmap={previewData?.bitmap ?? null}
-            blockScale={previewData?.scale ?? 1}
+            blockScale={previewBlockScale}
             mosaic={mosaic}
             watermark={watermark}
             wmImage={wmImage}
