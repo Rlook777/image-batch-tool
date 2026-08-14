@@ -162,29 +162,32 @@ function supportsCanvasFilter(): boolean {
   return filterSupport;
 }
 
-/** 逐步半縮到 1/(radius/2) 再放大回原尺寸,近似高斯模糊 */
+/**
+ * ctx.filter 不可用時的模糊:降採樣後做 3-pass box blur(收斂於高斯),
+ * 再放大回原尺寸。品質接近原生 filter,速度靠降採樣維持
+ */
 function blurByResample(
   source: HTMLCanvasElement,
   radius: number,
 ): HTMLCanvasElement {
   const w = source.width;
   const h = source.height;
-  const k = Math.max(1, radius / 2);
-  const targetW = Math.max(1, Math.round(w / k));
+  // 半徑越大降採樣越多(模糊會蓋掉細節,低解析度運算無感);上限 4 倍
+  const scale = Math.min(4, Math.max(1, Math.floor(radius / 6) + 1));
+  const sw = Math.max(1, Math.round(w / scale));
+  const sh = Math.max(1, Math.round(h / scale));
 
-  let cur: HTMLCanvasElement = source;
-  // 多段半縮比一次縮到底平滑(每段縮小都做一次雙線性平均)
-  while (cur.width / 2 > targetW) {
-    const next = document.createElement('canvas');
-    next.width = Math.max(1, Math.round(cur.width / 2));
-    next.height = Math.max(1, Math.round(cur.height / 2));
-    next.getContext('2d')!.drawImage(cur, 0, 0, next.width, next.height);
-    cur = next;
-  }
   const small = document.createElement('canvas');
-  small.width = targetW;
-  small.height = Math.max(1, Math.round(h * (targetW / w)));
-  small.getContext('2d')!.drawImage(cur, 0, 0, small.width, small.height);
+  small.width = sw;
+  small.height = sh;
+  const sctx = small.getContext('2d')!;
+  sctx.drawImage(source, 0, 0, sw, sh);
+
+  // CSS blur(r) 的標準差為 r/2,對齊原生 filter 的視覺強度
+  const sigma = Math.max(0.5, radius / scale / 2);
+  const img = sctx.getImageData(0, 0, sw, sh);
+  gaussianBlurRGBA(img.data, sw, sh, sigma);
+  sctx.putImageData(img, 0, 0);
 
   const out = document.createElement('canvas');
   out.width = w;
@@ -193,6 +196,60 @@ function blurByResample(
   octx.imageSmoothingQuality = 'high';
   octx.drawImage(small, 0, 0, w, h);
   return out;
+}
+
+/** 3-pass box blur 近似高斯(Kutskir 演算法),box 寬度由 sigma 推算 */
+function gaussianBlurRGBA(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  sigma: number,
+) {
+  const n = 3;
+  const wIdeal = Math.sqrt((12 * sigma * sigma) / n + 1);
+  let wl = Math.floor(wIdeal);
+  if (wl % 2 === 0) wl--;
+  const wu = wl + 2;
+  const m = Math.round(
+    (12 * sigma * sigma - n * wl * wl - 4 * n * wl - 3 * n) / (-4 * wl - 4),
+  );
+
+  const tmp = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < n; i++) {
+    const r = ((i < m ? wl : wu) - 1) / 2;
+    boxBlurAxis(data, tmp, w, h, r, true);
+    boxBlurAxis(tmp, data, w, h, r, false);
+  }
+}
+
+/** 單軸 box blur,滑動視窗 O(n),邊緣取 clamp */
+function boxBlurAxis(
+  src: Uint8ClampedArray,
+  dst: Uint8ClampedArray,
+  w: number,
+  h: number,
+  r: number,
+  horizontal: boolean,
+) {
+  const div = 2 * r + 1;
+  const lines = horizontal ? h : w;
+  const len = horizontal ? w : h;
+  for (let line = 0; line < lines; line++) {
+    const idx = (i: number) =>
+      horizontal ? (line * w + i) * 4 : (i * w + line) * 4;
+    for (let ch = 0; ch < 4; ch++) {
+      let sum = 0;
+      for (let i = -r; i <= r; i++) {
+        sum += src[idx(Math.min(len - 1, Math.max(0, i))) + ch];
+      }
+      for (let i = 0; i < len; i++) {
+        dst[idx(i) + ch] = sum / div;
+        sum +=
+          src[idx(Math.min(len - 1, i + r + 1)) + ch] -
+          src[idx(Math.max(0, i - r)) + ch];
+      }
+    }
+  }
 }
 
 // 噪點用 128px 小磚重複平鋪,避免對大圖逐像素產生隨機值
