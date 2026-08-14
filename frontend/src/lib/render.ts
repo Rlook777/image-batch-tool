@@ -37,7 +37,9 @@ function applyMosaic(
   const H = src.height;
   const regions =
     s.mode === 'full' ? [{ x: 0, y: 0, w: 1, h: 1 }] : s.regions;
-  const block = Math.max(1, s.blockSize * blockScale);
+  const strength = Math.max(1, s.blockSize * blockScale);
+  // 毛玻璃的模糊整張只算一次,多個框選區域共用
+  let blurred: HTMLCanvasElement | null = null;
 
   for (const r of regions) {
     const rx = Math.round(r.x * W);
@@ -46,9 +48,25 @@ function applyMosaic(
     const rh = Math.round(r.h * H);
     if (rw < 2 || rh < 2) continue;
 
-    // 馬賽克 = 區域縮小再放大:縮小時像素平均,放大時關閉平滑保留格子邊緣
-    const sw = Math.max(1, Math.round(rw / block));
-    const sh = Math.max(1, Math.round(rh / block));
+    if (s.effect === 'glass') {
+      if (!blurred) blurred = makeBlurred(src, strength);
+      ctx.save();
+      ctx.globalAlpha = s.opacity / 100;
+      ctx.drawImage(blurred, rx, ry, rw, rh, rx, ry, rw, rh);
+      // 細噪點 + 輕微提亮,構成毛玻璃質感
+      ctx.globalAlpha = (s.opacity / 100) * 0.08;
+      ctx.fillStyle = noisePattern(ctx);
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.globalAlpha = (s.opacity / 100) * 0.1;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.restore();
+      continue;
+    }
+
+    // 像素馬賽克 = 區域縮小再放大:縮小時像素平均,放大時關閉平滑保留格子邊緣
+    const sw = Math.max(1, Math.round(rw / strength));
+    const sh = Math.max(1, Math.round(rh / strength));
     const small = document.createElement('canvas');
     small.width = sw;
     small.height = sh;
@@ -60,6 +78,37 @@ function applyMosaic(
     ctx.drawImage(small, 0, 0, sw, sh, rx, ry, rw, rh);
     ctx.restore();
   }
+}
+
+function makeBlurred(src: ImageBitmap, radius: number): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const cctx = c.getContext('2d')!;
+  cctx.filter = `blur(${radius}px)`;
+  cctx.drawImage(src, 0, 0);
+  return c;
+}
+
+// 噪點用 128px 小磚重複平鋪,避免對大圖逐像素產生隨機值
+let noiseTile: HTMLCanvasElement | null = null;
+function noisePattern(ctx: CanvasRenderingContext2D): CanvasPattern {
+  if (!noiseTile) {
+    noiseTile = document.createElement('canvas');
+    noiseTile.width = 128;
+    noiseTile.height = 128;
+    const tctx = noiseTile.getContext('2d')!;
+    const data = tctx.createImageData(128, 128);
+    for (let i = 0; i < data.data.length; i += 4) {
+      const v = Math.floor(Math.random() * 256);
+      data.data[i] = v;
+      data.data[i + 1] = v;
+      data.data[i + 2] = v;
+      data.data[i + 3] = 255;
+    }
+    tctx.putImageData(data, 0, 0);
+  }
+  return ctx.createPattern(noiseTile, 'repeat')!;
 }
 
 function applyWatermark(

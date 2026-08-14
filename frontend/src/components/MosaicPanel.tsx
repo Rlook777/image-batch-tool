@@ -24,6 +24,24 @@ export default function MosaicPanel({ settings, onChange }: Props) {
       </div>
       <div className="rows">
         <div className="row">
+          <label>效果類型</label>
+          <select
+            value={settings.effect}
+            onChange={(e) =>
+              set({ effect: e.target.value as MosaicSettings['effect'] })
+            }
+          >
+            <option value="pixelate">像素馬賽克</option>
+            <option value="glass">毛玻璃</option>
+          </select>
+          {settings.effect === 'glass' && (
+            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
+              ⚠️ 模糊類效果可能被 AI 部分還原,遮擋人臉、車牌、文字等敏感資訊建議用高強度像素馬賽克
+            </span>
+          )}
+        </div>
+
+        <div className="row">
           <label>範圍模式</label>
           <select
             value={settings.mode}
@@ -54,7 +72,9 @@ export default function MosaicPanel({ settings, onChange }: Props) {
 
         <div className="row">
           <label>
-            <span>強度(格子大小)</span>
+            <span>
+              強度({settings.effect === 'glass' ? '模糊半徑' : '格子大小'})
+            </span>
             <span>{settings.blockSize}px</span>
           </label>
           <input

@@ -38,10 +38,13 @@ export interface MosaicRegion {
   h: number;
 }
 
+export type MosaicEffect = 'pixelate' | 'glass';
+
 export interface MosaicSettings {
   enabled: boolean;
+  effect: MosaicEffect;
   mode: 'full' | 'regions';
-  /** 馬賽克格子大小(px,以原圖解析度計) */
+  /** 強度(px,以原圖解析度計):像素馬賽克=格子大小,毛玻璃=模糊半徑 */
   blockSize: number;
   opacity: number;
   regions: MosaicRegion[];

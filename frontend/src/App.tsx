@@ -45,6 +45,7 @@ export default function App() {
 
   const [mosaic, setMosaic] = useState<MosaicSettings>({
     enabled: false,
+    effect: 'pixelate',
     mode: 'full',
     blockSize: 15,
     opacity: 100,
