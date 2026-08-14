@@ -69,6 +69,11 @@ export default function ImageGrid({
             </button>
             <div className="meta">
               {img.name} · {img.width}×{img.height}
+              {(img.targetW || img.targetH) &&
+                ` → ${img.targetW ?? Math.round(img.width * (img.targetH! / img.height))}×${
+                  img.targetH ??
+                  Math.round(img.height * (img.targetW! / img.width))
+                }`}
             </div>
           </div>
         ))}

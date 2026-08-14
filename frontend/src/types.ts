@@ -7,6 +7,9 @@ export interface SourceImage {
   height: number;
   thumbUrl: string;
   selected: boolean;
+  /** Layout 尺寸覆寫:targetH 為 null 表示等比(由 targetW 推算) */
+  targetW?: number | null;
+  targetH?: number | null;
 }
 
 export type NinePosition =
@@ -57,7 +60,4 @@ export interface OutputSettings {
   affix: string;
   format: 'original' | 'jpeg' | 'png';
   jpegQuality: number;
-  /** 統一寬度縮放:啟用時所有輸出圖縮放到 resizeWidth,高度等比 */
-  resizeEnabled: boolean;
-  resizeWidth: number;
 }

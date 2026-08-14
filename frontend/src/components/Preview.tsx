@@ -6,6 +6,9 @@ interface Props {
   bitmap: ImageBitmap | null;
   /** 預覽用縮圖相對原圖的縮放比(<1),用來校正馬賽克格子大小 */
   blockScale: number;
+  /** Layout 尺寸覆寫(已按預覽縮圖比例縮小) */
+  targetW: number | null;
+  targetH: number | null;
   mosaic: MosaicSettings;
   watermark: WatermarkSettings;
   wmImage: ImageBitmap | null;
@@ -23,6 +26,8 @@ interface Draft {
 export default function Preview({
   bitmap,
   blockScale,
+  targetW,
+  targetH,
   mosaic,
   watermark,
   wmImage,
@@ -42,11 +47,13 @@ export default function Preview({
       watermark,
       wmImage,
       blockScale,
+      targetW,
+      targetH,
     );
     canvas.width = rendered.width;
     canvas.height = rendered.height;
     canvas.getContext('2d')!.drawImage(rendered, 0, 0);
-  }, [bitmap, blockScale, mosaic, watermark, wmImage]);
+  }, [bitmap, blockScale, targetW, targetH, mosaic, watermark, wmImage]);
 
   if (!bitmap) {
     return (

@@ -39,40 +39,6 @@ export default function OutputPanel({
         <span>輸出與下載</span>
       </div>
       <div className="rows">
-        <label className="switch">
-          <input
-            type="checkbox"
-            checked={settings.resizeEnabled}
-            onChange={(e) => set({ resizeEnabled: e.target.checked })}
-          />
-          統一寬度(所有圖縮放到同一寬度,高度等比)
-        </label>
-
-        {settings.resizeEnabled && (
-          <div className="row">
-            <label>
-              <span>目標寬度(px)</span>
-            </label>
-            <input
-              type="number"
-              min={16}
-              max={8192}
-              value={settings.resizeWidth}
-              onChange={(e) =>
-                set({
-                  resizeWidth: Math.min(
-                    8192,
-                    Math.max(16, Number(e.target.value) || 16),
-                  ),
-                })
-              }
-            />
-            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>
-              比目標窄的圖會被放大,放大會降低畫質
-            </span>
-          </div>
-        )}
-
         <div className="row">
           <label>檔名規則</label>
           <select

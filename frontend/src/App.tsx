@@ -17,6 +17,7 @@ import ImageGrid from './components/ImageGrid';
 import Preview from './components/Preview';
 import WatermarkPanel from './components/WatermarkPanel';
 import MosaicPanel from './components/MosaicPanel';
+import LayoutPanel from './components/LayoutPanel';
 import OutputPanel, { type Progress } from './components/OutputPanel';
 
 /** 預覽用縮圖的最長邊,避免大圖在調參數時重繪卡頓 */
@@ -57,8 +58,6 @@ export default function App() {
     affix: '_processed',
     format: 'original',
     jpegQuality: 0.9,
-    resizeEnabled: false,
-    resizeWidth: 1080,
   });
 
   const [progress, setProgress] = useState<Progress>({
@@ -156,11 +155,30 @@ export default function App() {
     setWatermark((s) => ({ ...s, enabled: true }));
   };
 
+  const applyLayout = (scope: 'single' | 'batch', w: number, h: number | null) =>
+    setImages((prev) =>
+      prev.map((i) =>
+        (scope === 'single' ? i.id === previewId : i.selected)
+          ? { ...i, targetW: w, targetH: h }
+          : i,
+      ),
+    );
+
+  const resetLayout = (scope: 'single' | 'batch') =>
+    setImages((prev) =>
+      prev.map((i) =>
+        (scope === 'single' ? i.id === previewId : i.selected)
+          ? { ...i, targetW: null, targetH: null }
+          : i,
+      ),
+    );
+
   const selected = images.filter((i) => i.selected);
+  const hasLayout = selected.some((i) => i.targetW || i.targetH);
   const disabledReason = !selected.length
     ? '請先上傳並勾選圖片'
-    : !watermark.enabled && !mosaic.enabled
-      ? '請至少啟用浮水印或馬賽克其中一項'
+    : !watermark.enabled && !mosaic.enabled && !hasLayout
+      ? '請至少啟用浮水印或馬賽克,或設定尺寸'
       : watermark.enabled && !wmImage
         ? '已啟用浮水印,請先上傳浮水印圖片'
         : mosaic.enabled && mosaic.mode === 'regions' && !mosaic.regions.length
@@ -180,7 +198,8 @@ export default function App() {
           watermark,
           wmImage,
           1,
-          output.resizeEnabled ? output.resizeWidth : null,
+          img.targetW ?? null,
+          img.targetH ?? null,
         );
         const mime = resolveMime(img.name, output);
         const blob = await canvasToBlob(
@@ -205,14 +224,16 @@ export default function App() {
     }
   };
 
-  // 預覽的效果強度以「輸出解析度」為準:啟用統一寬度時,
-  // 格子/模糊半徑的縮放比要用 預覽圖寬/輸出寬 而不是 預覽圖寬/原圖寬
-  const previewImg = images.find((i) => i.id === previewId);
-  const previewOutW = output.resizeEnabled
-    ? output.resizeWidth
-    : previewImg?.width;
-  const previewBlockScale =
-    previewData && previewOutW ? previewData.bitmap.width / previewOutW : 1;
+  // 預覽端把尺寸覆寫按預覽縮圖比例縮小後傳入,
+  // 預覽會真實呈現目標比例(含變形),效果強度也與輸出一致
+  const previewImg = images.find((i) => i.id === previewId) ?? null;
+  const q = previewData?.scale ?? 1;
+  const pTargetW = previewImg?.targetW
+    ? Math.max(1, Math.round(previewImg.targetW * q))
+    : null;
+  const pTargetH = previewImg?.targetH
+    ? Math.max(1, Math.round(previewImg.targetH * q))
+    : null;
 
   return (
     <div className="app">
@@ -228,6 +249,12 @@ export default function App() {
       <div className="app-body">
         <aside className="sidebar">
           <UploadZone onFiles={addFiles} compact={images.length > 0} />
+          <LayoutPanel
+            previewImg={previewImg}
+            selectedCount={selected.length}
+            onApply={applyLayout}
+            onReset={resetLayout}
+          />
           <MosaicPanel settings={mosaic} onChange={setMosaic} />
           <WatermarkPanel
             settings={watermark}
@@ -246,7 +273,9 @@ export default function App() {
         <main className="main">
           <Preview
             bitmap={previewData?.bitmap ?? null}
-            blockScale={previewBlockScale}
+            blockScale={q}
+            targetW={pTargetW}
+            targetH={pTargetH}
             mosaic={mosaic}
             watermark={watermark}
             wmImage={wmImage}

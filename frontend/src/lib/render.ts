@@ -7,8 +7,8 @@ type BaseSource = ImageBitmap | HTMLCanvasElement;
  * 對來源圖套用縮放 + 馬賽克 + 浮水印,回傳處理後的 canvas。
  * @param blockScale 預覽時來源圖是縮小過的,格子大小需乘上同樣比例,
  *                   讓預覽效果與全解析度輸出一致(輸出時傳 1)
- * @param targetWidth 統一寬度縮放的目標寬(px);null/undefined 表示不縮放。
- *                    先縮放再套效果,馬賽克強度以輸出解析度為準
+ * @param targetW/targetH Layout 尺寸覆寫(px);targetH 為 null 時由 targetW 等比推算。
+ *                        先縮放再套效果,馬賽克強度以輸出解析度為準
  */
 export function renderProcessed(
   src: ImageBitmap,
@@ -16,17 +16,26 @@ export function renderProcessed(
   wm: WatermarkSettings,
   wmImage: ImageBitmap | null,
   blockScale = 1,
-  targetWidth?: number | null,
+  targetW?: number | null,
+  targetH?: number | null,
 ): HTMLCanvasElement {
   let base: BaseSource = src;
-  if (targetWidth && targetWidth > 0 && targetWidth !== src.width) {
-    const W = Math.round(targetWidth);
-    const H = Math.max(1, Math.round(src.height * (W / src.width)));
-    const b = document.createElement('canvas');
-    b.width = W;
-    b.height = H;
-    b.getContext('2d')!.drawImage(src, 0, 0, W, H);
-    base = b;
+  if (targetW || targetH) {
+    const W = Math.max(
+      1,
+      Math.round(targetW ?? src.width * (targetH! / src.height)),
+    );
+    const H = Math.max(
+      1,
+      Math.round(targetH ?? src.height * (targetW! / src.width)),
+    );
+    if (W !== src.width || H !== src.height) {
+      const b = document.createElement('canvas');
+      b.width = W;
+      b.height = H;
+      b.getContext('2d')!.drawImage(src, 0, 0, W, H);
+      base = b;
+    }
   }
 
   const canvas = document.createElement('canvas');
