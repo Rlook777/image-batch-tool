@@ -15,7 +15,8 @@
 | B. 批量馬賽克(整張+框選) | [02-mosaic.md](features/02-mosaic.md) | ✅ 第一版完成(2026-08-13,E2E 已測) |
 | C. 批量浮水印 | [03-watermark.md](features/03-watermark.md) | ✅ 第一版完成(2026-08-13,E2E 已測) |
 | D. 批量下載 | [04-batch-download.md](features/04-batch-download.md) | ✅ 第一版完成(2026-08-13,E2E 已測) |
-| E. 輸出尺寸調整(統一寬度) | [05-resize.md](features/05-resize.md) | ✅ 第一版完成(2026-08-14) |
+| E. Layout 尺寸調整 | [05-resize.md](features/05-resize.md) | ✅ 第二版完成(2026-08-14,自訂 W/H + 單張/批量) |
+| F. 影片熱度截圖 | (未建檔) | ⏸️ 暫緩(2026-08-14 評估後決定):熱度資料僅 YouTube 公開,需自架後端(yt-dlp+ffmpeg),有反爬與 ToS 風險;其他平台只能做場景偵測截圖替代 |
 
 程式碼位置:`frontend/`(React + Vite + TS,純前端,尚無後端)
 
